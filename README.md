@@ -23,6 +23,11 @@ is a separate Python edition for a Raspberry Pi Zero 2 W with the Waveshare
 7.5 inch e-Paper HAT. It is complete and installs from this repository; it is
 not updated with the ESP32 releases.
 
+**This fork** ([bigonionbots/Book32](https://github.com/bigonionbots/Book32)) adds
+an audio build for the LILYGO: an **Audiobooks** app for Audiobookshelf and
+books on the card, played through USB headphones (such as the Sabrent AU-UCMA)
+or the USB-C audio module. See [Audiobooks on the LILYGO](docs/audio.md).
+
 ## Features
 
 - **eReader** for EPUB books, with illustrations, cover thumbnails and saved
