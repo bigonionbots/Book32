@@ -1,4 +1,5 @@
 #include "AppTodo.h"
+#include "Config.h"
 #include "SoundMgr.h"
 #include "DisplayMgr.h"
 #include "InputMgr.h"
@@ -155,7 +156,7 @@ void AppTodo::deleteTodo(int id) {
 
 void AppTodo::handleInput(InputAction action) {
     if (action == INPUT_NONE) return;
-#if defined(BOARD_LILYGO_T5S3_PRO)
+#if BOOK32_HAS_BACK_BUTTON
     if (action == INPUT_BACK) { AppMgr::getInstance().switchTo(0); return; }
 #endif
 

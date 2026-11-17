@@ -8,6 +8,9 @@
 #if defined(BOARD_LILYGO_T5S3_PRO)
 #include "LilygoDisplay.h"
 typedef LilygoDisplay Book32Display;
+#elif defined(BOARD_M5_PAPERDIY)
+#include "PaperDiyDisplay.h"
+typedef PaperDiyDisplay Book32Display;
 #elif defined(BOARD_SEEED_STICKY)
 #include "StickyDisplay.h"
 typedef StickyDisplay Book32Display;

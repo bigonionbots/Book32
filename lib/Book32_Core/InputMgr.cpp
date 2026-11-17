@@ -9,15 +9,21 @@
 #endif
 #include "AppMgr.h"
 #include "GamepadMgr.h"
+#if defined(BOARD_M5_PAPERDIY)
+#include "PaperDiyPower.h"
+#endif
 
 #if defined(BOARD_SEEED_STICKY)
 InputMgr::InputMgr() : btn(PIN_BUTTON, true, true),
                        btnUp(PIN_BUTTON_UP, true, true),
                        btnDown(PIN_BUTTON_DOWN, true, true) {
-#elif defined(PIN_BUTTON_PREV)
+#elif defined(PIN_BUTTON_PREV) && defined(PIN_BUTTON_HOME)
 InputMgr::InputMgr() : btn(PIN_BUTTON, true, true),
                        btnPrev(PIN_BUTTON_PREV, true, true),
                        btnHome(PIN_BUTTON_HOME, true, true) {
+#elif defined(PIN_BUTTON_PREV)
+InputMgr::InputMgr() : btn(PIN_BUTTON, true, true),
+                       btnPrev(PIN_BUTTON_PREV, true, true) {
 #else
 InputMgr::InputMgr() : btn(PIN_BUTTON, true, true) {
 #endif
@@ -57,11 +63,18 @@ void InputMgr::init() {
 #if defined(PIN_BUTTON_PREV)
     // TRMNL kit: KEY1 turns back a page, KEY2 returns to the main menu.
     btnPrev.setDebounceMs(30);
-    btnHome.setDebounceMs(30);
     btnPrev.setClickMs(100);
-    btnHome.setClickMs(100);
     btnPrev.attachClick(staticUp, this);
+#endif
+#if defined(PIN_BUTTON_HOME)
+    btnHome.setDebounceMs(30);
+    btnHome.setClickMs(100);
     btnHome.attachClick(staticHome, this);
+#endif
+#if defined(BOARD_M5_PAPERDIY)
+    // PaperDIY KEY1: holding it goes back (the power button is Home).
+    btnPrev.setPressMs(400);
+    btnPrev.attachLongPressStart(staticBack, this);
 #endif
 #if BOOK32_HAS_TOUCH
     touch.begin();
@@ -204,12 +217,17 @@ void InputMgr::update() {
 #endif
 #if defined(PIN_BUTTON_PREV)
         btnPrev.tick();
+#endif
+#if defined(PIN_BUTTON_HOME)
         btnHome.tick();
 #endif
 #if BOOK32_HAS_TOUCH
         pollTouch();
 #endif
     }
+#if defined(BOARD_M5_PAPERDIY)
+    pollPowerButton();
+#endif
 
     InputEvent event;
     while (dequeueEvent(event)) {
@@ -255,6 +273,8 @@ void InputMgr::inputTask(void* parameter) {
 #endif
 #if defined(PIN_BUTTON_PREV)
         self->btnPrev.tick();
+#endif
+#if defined(PIN_BUTTON_HOME)
         self->btnHome.tick();
 #endif
 #if BOOK32_HAS_TOUCH
@@ -303,6 +323,33 @@ void InputMgr::staticLongPress(void* ptr) { if (ptr) static_cast<InputMgr*>(ptr)
 void InputMgr::staticUp(void* ptr) { if (ptr) static_cast<InputMgr*>(ptr)->onUp(); }
 void InputMgr::staticDown(void* ptr) { if (ptr) static_cast<InputMgr*>(ptr)->onDown(); }
 void InputMgr::staticHome(void* ptr) { if (ptr) static_cast<InputMgr*>(ptr)->onHome(); }
+void InputMgr::staticBack(void* ptr) {
+    if (!ptr) return;
+    BatteryMgr::getInstance().resetIdleTimer();
+    static_cast<InputMgr*>(ptr)->enqueueAction(INPUT_BACK);
+}
+
+#if defined(BOARD_M5_PAPERDIY)
+// Click: Home. Held two seconds: sleep (BatteryMgr waits for the release).
+void InputMgr::pollPowerButton() {
+    const uint32_t now = millis();
+    if (uint32_t(now - _powerPolledAt) < 25) return;
+    _powerPolledAt = now;
+    const bool down = PaperDiyPower::isPowerButtonPressed();
+    if (down && !_powerDown) {
+        _powerDown = true;
+        _powerDownAt = now;
+        _powerSleepSent = false;
+        BatteryMgr::getInstance().resetIdleTimer();
+    } else if (down && !_powerSleepSent && now - _powerDownAt >= 2000) {
+        _powerSleepSent = true;
+        enqueueAction(INPUT_POWER_SLEEP);
+    } else if (!down && _powerDown) {
+        _powerDown = false;
+        if (!_powerSleepSent && now - _powerDownAt >= 30) onHome();
+    }
+}
+#endif
 
 void InputMgr::onClick() {
     BatteryMgr::getInstance().resetIdleTimer();

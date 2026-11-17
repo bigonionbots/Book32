@@ -4,6 +4,10 @@
 #define SYSTEM_VERSION "1.4.7"
 #define DEVICE_NAME "LILYGO T5 E-Paper S3 Pro Lite (H752-01)"
 #define SLEEP_TIMEOUT_DEFAULT_MINUTES 10
+#elif defined(BOARD_M5_PAPERDIY)
+#define SYSTEM_VERSION "1.4.7"
+#define DEVICE_NAME "M5Stack PaperDIY"
+#define SLEEP_TIMEOUT_DEFAULT_MINUTES 10
 #elif defined(BOARD_SEEED_STICKY)
 #define SYSTEM_VERSION "1.4.7"
 #define DEVICE_NAME "Seeed Studio Sticky"
@@ -17,6 +21,9 @@
 #if defined(BOARD_LILYGO_T5S3_PRO)
 #define SLEEP_CONFIG_VERSION 3
 #define SLEEP_MESSAGE_DEFAULT "Press BOOT to wake"
+#elif defined(BOARD_M5_PAPERDIY)
+#define SLEEP_CONFIG_VERSION 3
+#define SLEEP_MESSAGE_DEFAULT "Press a key to wake"
 #elif defined(BOARD_SEEED_STICKY)
 #define SLEEP_CONFIG_VERSION 2
 #define SLEEP_MESSAGE_DEFAULT "Press power to wake"
@@ -33,14 +40,15 @@
 
 // Both supported panels are 800x480 natively and run the InkDeck UI in
 // 480x800 portrait orientation.
-#if defined(BOARD_LILYGO_T5S3_PRO)
+// The LILYGO and the PaperDIY share the 960x540 panel (LilygoLayout's safe canvas).
+#if defined(BOARD_LILYGO_T5S3_PRO) || defined(BOARD_M5_PAPERDIY)
 #define SCREEN_WIDTH 524
 #define SCREEN_HEIGHT 944
 #else
 #define SCREEN_WIDTH 480
 #define SCREEN_HEIGHT 800
 #endif
-#if defined(BOARD_LILYGO_T5S3_PRO)
+#if defined(BOARD_LILYGO_T5S3_PRO) || defined(BOARD_M5_PAPERDIY)
 #define PANEL_WIDTH 960
 #define PANEL_HEIGHT 540
 #else
@@ -49,7 +57,7 @@
 #endif
 #define FONT_SIZE_DEFAULT 28
 #define READER_FULL_REFRESH_INTERVAL_DEFAULT 15
-#if defined(BOARD_SEEED_STICKY) || defined(BOARD_LILYGO_T5S3_PRO)
+#if defined(BOARD_SEEED_STICKY) || defined(BOARD_LILYGO_T5S3_PRO) || defined(BOARD_M5_PAPERDIY)
 #define READER_FONT_SIZE_DEFAULT 18
 #else
 #define READER_FONT_SIZE_DEFAULT 9
@@ -76,6 +84,24 @@
 #define BOOK32_HAS_BUZZER 0
 #define OTA_FIRMWARE_ASSET "inkdeck-lilygo-firmware.bin"
 #define OTA_FILESYSTEM_ASSET "inkdeck-lilygo-littlefs.bin"
+#elif defined(BOARD_M5_PAPERDIY)
+// M5Stack PaperDIY (K159 / K159-B). Panel bus: FastEPD's BB_PANEL_M5PAPERS3.
+#define PIN_BUTTON       3  // KEY2 (B): next, hold to select
+#define PIN_BUTTON_PREV  4  // KEY1 (A): previous, hold for back
+// The power button belongs to the M5PM1 (polled over I2C): click for the
+// main menu, hold two seconds to sleep. There is no PIN_BUTTON_HOME.
+#define PAPERDIY_I2C_SDA 41  // M5PM1 power chip, 0x6E
+#define PAPERDIY_I2C_SCL 42
+#define SD_CS            47  // also FastEPD's dummy DC pin: SD starts after the panel
+#define SD_MISO          40
+#define SD_SCK           39
+#define SD_MOSI          38
+#define SD_DETECT        48  // LOW with a card in
+#define BOOK32_HAS_TOUCH 0
+#define BOOK32_HAS_SD    1
+#define BOOK32_HAS_BUZZER 0
+#define OTA_FIRMWARE_ASSET "inkdeck-paperdiy-firmware.bin"
+#define OTA_FILESYSTEM_ASSET "inkdeck-paperdiy-littlefs.bin"
 #elif defined(BOARD_SEEED_STICKY)
 // Seeed reTerminal E1002 / Sticky 3.97" (SSD1677)
 #define PIN_BUTTON       4
@@ -145,6 +171,29 @@
 #define OTA_FILESYSTEM_ASSET "littlefs.bin"
 #endif
 
+// The Book32's GxEPD2 7.5" panel. Other boards without touch (PaperDIY)
+// drive their own panels. Same name as on the waveshare-rlcd-42 branch.
+#if !defined(BOARD_LILYGO_T5S3_PRO) && !defined(BOARD_SEEED_STICKY) && !defined(BOARD_M5_PAPERDIY)
+#define BOOK32_GXEPD_PANEL 1
+#else
+#define BOOK32_GXEPD_PANEL 0
+#endif
+
+// The 4.7" 960x540 parallel panel (LILYGO, PaperDIY): a canvas display with
+// 16 native grays, so covers show in true gray and the library is taller.
+#if defined(BOARD_LILYGO_T5S3_PRO) || defined(BOARD_M5_PAPERDIY)
+#define BOOK32_PARALLEL_PANEL 1
+#else
+#define BOOK32_PARALLEL_PANEL 0
+#endif
+
+// A key that sends INPUT_BACK (LILYGO BOOT, PaperDIY KEY1 held).
+#if defined(BOARD_LILYGO_T5S3_PRO) || defined(BOARD_M5_PAPERDIY)
+#define BOOK32_HAS_BACK_BUTTON 1
+#else
+#define BOOK32_HAS_BACK_BUTTON 0
+#endif
+
 // Inkade (Game Boy / NES) runs on the touch boards with fast video drivers.
 #if defined(BOARD_LILYGO_T5S3_PRO) || defined(BOARD_SEEED_STICKY)
 #define BOOK32_HAS_INKBOY 1
@@ -188,5 +237,11 @@
 #define BATTERY_FULL_VOLTAGE 4.20f
 
 // GitHub OTA Config
+#if defined(BOARD_M5_PAPERDIY)
+// Experimental board: updates from the fork's releases (its own assets).
+#define GITHUB_REPO "bigonionbots/Book32"
+#define GITHUB_USER "bigonionbots"
+#else
 #define GITHUB_REPO "rolohaun/Book32"
 #define GITHUB_USER "rolohaun"
+#endif

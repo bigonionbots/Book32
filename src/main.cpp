@@ -31,6 +31,10 @@
 #include <WiFiManager.h>
 #include <driver/gpio.h>
 #include <esp_sleep.h>
+#if defined(BOARD_M5_PAPERDIY)
+#include <driver/rtc_io.h>
+#include "PaperDiyPower.h"
+#endif
 
 volatile bool gNetworkStartupInProgress = false;
 #if !BOOK32_HAS_TOUCH
@@ -134,7 +138,23 @@ static void networkStartupTask(void* parameter) {
 }
 
 void setup() {
-#if !BOOK32_HAS_TOUCH
+#if defined(BOARD_M5_PAPERDIY)
+    // The keys were RTC inputs through deep sleep. Take them back, start the
+    // M5PM1 (panel rail, power button), and let a wake press end first so it
+    // is not also taken as a page turn.
+    for (int pin : {PIN_BUTTON, PIN_BUTTON_PREV}) {
+        rtc_gpio_deinit(static_cast<gpio_num_t>(pin));
+        pinMode(pin, INPUT_PULLUP);
+    }
+    PaperDiyPower::begin();
+    if (esp_sleep_get_wakeup_cause() == ESP_SLEEP_WAKEUP_EXT1) {
+        const unsigned long started = millis();
+        while ((digitalRead(PIN_BUTTON) == LOW || digitalRead(PIN_BUTTON_PREV) == LOW) && millis() - started < 3000)
+            delay(20);
+        delay(50);
+    }
+#endif
+#if BOOK32_GXEPD_PANEL
     // Book32 holds its battery-divider switch and display control pins
     // through deep sleep. Release them, and if the button woke us, wait for
     // that press to end so it is not also taken as "next".

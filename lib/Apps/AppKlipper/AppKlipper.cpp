@@ -1,4 +1,5 @@
 #include "AppKlipper.h"
+#include "Config.h"
 #include "DisplayMgr.h"
 #include "AppMgr.h"
 #include "FontMgr.h"
@@ -128,7 +129,7 @@ void AppKlipper::stop() {
 }
 
 void AppKlipper::handleInput(InputAction action) {
-#if defined(BOARD_LILYGO_T5S3_PRO)
+#if BOOK32_HAS_BACK_BUTTON
     if (action == INPUT_BACK) { AppMgr::getInstance().switchTo(0); return; }
 #endif
     if (action == INPUT_NEXT) {

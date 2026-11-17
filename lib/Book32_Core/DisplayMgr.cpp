@@ -45,7 +45,7 @@ static void drawBootProgress(Book32Display& display, uint8_t progress, const cha
 // The orientation is mirrored into NVS so the very first boot frame is drawn
 // the right way up; /display_config.json (on ebook storage) stays the source
 // of truth and is re-applied by loadDisplaySettings() once storage mounts.
-#if !BOOK32_HAS_TOUCH
+#if BOOK32_GXEPD_PANEL
 static const unsigned long PANEL_POWER_HOLD_MS = 10000;
 #endif
 
@@ -72,10 +72,10 @@ static void saveCachedRotation(int rotation) {
 
 // Constructor with Pin mapping
 // GxEPD2_420(int16_t cs, int16_t dc, int16_t rst, int16_t busy)
-#if BOOK32_HAS_TOUCH
-DisplayMgr::DisplayMgr() : display() {}
-#else
+#if BOOK32_GXEPD_PANEL
 DisplayMgr::DisplayMgr() : display(GxEPD2_750_T7_Fast(EPD_CS, EPD_DC, EPD_RST, EPD_BUSY)) {}
+#else
+DisplayMgr::DisplayMgr() : display() {}
 #endif
 
 DisplayMgr& DisplayMgr::getInstance() {
@@ -85,10 +85,10 @@ DisplayMgr& DisplayMgr::getInstance() {
 
 void DisplayMgr::init() {
     // For ESP32-S3 we must initialize SPI with custom pins before display.init
-#if !defined(BOARD_LILYGO_T5S3_PRO)
+#if !defined(BOARD_LILYGO_T5S3_PRO) && !defined(BOARD_M5_PAPERDIY)
     SPI.begin(EPD_SCK, EPD_MISO, EPD_MOSI, EPD_CS);
 #endif
-#if !BOOK32_HAS_TOUCH
+#if BOOK32_GXEPD_PANEL
     // GxEPD2 defaults to 4MHz and sends 48KB frames byte by byte. The UC8179
     // controller accepts writes well above 10MHz; stay conservative for the
     // DIY kit's wiring.
@@ -281,7 +281,7 @@ void DisplayMgr::renderBootScreen(uint8_t progress, const char* status) {
 }
 
 void DisplayMgr::update() {
-#if !BOOK32_HAS_TOUCH
+#if BOOK32_GXEPD_PANEL
     // GxEPD2 only powers the 7.5" panel down after a full refresh; partial
     // updates leave its high-voltage booster on indefinitely, which slowly
     // darkens the panel edge. Keep it armed briefly after a button press so

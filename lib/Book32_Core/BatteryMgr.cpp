@@ -31,6 +31,9 @@ static bool lilygoGaugeWord(uint8_t reg, uint16_t& value) {
 #if defined(BOARD_SEEED_STICKY)
 #include <Wire.h>
 #endif
+#if defined(BOARD_M5_PAPERDIY)
+#include "PaperDiyPower.h"
+#endif
 
 // Static constants
 const float BatteryMgr::CHARGE_THRESHOLD = 0.03f;  // 30mV increase = charging (avoid false positives from fluctuation)
@@ -124,6 +127,9 @@ BatteryMgr& BatteryMgr::getInstance() {
 void BatteryMgr::init() {
 #if defined(BOARD_LILYGO_T5S3_PRO)
     _cachedStatus = {3.7f, 50, false};
+#elif defined(BOARD_M5_PAPERDIY)
+    PaperDiyPower::begin();
+    _cachedStatus = {3.7f, 50, PaperDiyPower::isCharging()};
 #elif defined(BOARD_SEEED_STICKY)
     pinMode(PIN_CHARGE_STATUS, INPUT_PULLUP);
     Wire1.begin(BATTERY_I2C_SDA, BATTERY_I2C_SCL, 400000);
@@ -171,7 +177,7 @@ void BatteryMgr::update() {
 
     // Update voltage history periodically for trend analysis on the XIAO
     // hardware. Sticky reports charge state directly through its gauge/charger.
-#if !BOOK32_HAS_TOUCH
+#if !BOOK32_HAS_TOUCH && !defined(BOARD_M5_PAPERDIY)
     if (now - _lastHistoryUpdate >= HISTORY_INTERVAL_MS) {
         // Make sure cache is fresh
         if (now - _lastReadTime >= CACHE_DURATION_MS) {
@@ -244,6 +250,21 @@ void BatteryMgr::updateCache(bool clearStaleCharging) {
         const bool charging = lilygoGaugeWord(0x0C, current) && (int16_t)current > 0;
         _cachedStatus = {mv / 1000.f, percent, charging};
         if (charging) _lastChargingTime = millis();
+    }
+    _lastReadTime = millis();
+    return;
+#elif defined(BOARD_M5_PAPERDIY)
+    // The M5PM1 measures the cell; its CHG_STAT line says when the charger runs.
+    (void)clearStaleCharging;
+    uint16_t mv = 0;
+    if (PaperDiyPower::readBatteryMillivolts(mv) && mv >= 2500 && mv <= 5000) {
+        const float voltage = mv / 1000.0f;
+        const bool charging = PaperDiyPower::isCharging();
+        _cachedStatus = {voltage, voltageToPercentage(voltage), charging};
+        _lastValidVoltage = voltage;
+        if (charging) _lastChargingTime = millis();
+    } else {
+        _cachedStatus.charging = PaperDiyPower::isCharging();
     }
     _lastReadTime = millis();
     return;
@@ -550,6 +571,32 @@ void BatteryMgr::enterIdleSleep() {
     holdSleepPin(46, HIGH); // LoRa chip select
     holdSleepPin(SD_CS, HIGH);
     gpio_deep_sleep_hold_en();
+#elif defined(BOARD_M5_PAPERDIY)
+    // Panel rail off, then wake on either key (RTC inputs with pull-ups) or a
+    // power-button click, which resets the board through the M5PM1.
+    display.hibernate();
+    endEbookStorageForSleep();
+    {
+        const unsigned long started = millis();
+        while ((digitalRead(PIN_BUTTON) == LOW || digitalRead(PIN_BUTTON_PREV) == LOW ||
+                PaperDiyPower::isPowerButtonPressed()) && millis() - started < 5000)
+            delay(10);
+    }
+    PaperDiyPower::setPowerButtonResetEnabled(true);
+    {
+        uint64_t wakeMask = 0;
+        for (int pin : {PIN_BUTTON, PIN_BUTTON_PREV}) {
+            const gpio_num_t gpio = static_cast<gpio_num_t>(pin);
+            rtc_gpio_init(gpio);
+            rtc_gpio_set_direction(gpio, RTC_GPIO_MODE_INPUT_ONLY);
+            rtc_gpio_pullup_en(gpio);
+            rtc_gpio_pulldown_dis(gpio);
+            wakeMask |= 1ULL << pin;
+        }
+        // The RTC pull-ups need the RTC peripherals powered through sleep.
+        esp_sleep_pd_config(ESP_PD_DOMAIN_RTC_PERIPH, ESP_PD_OPTION_ON);
+        esp_sleep_enable_ext1_wakeup(wakeMask, ESP_EXT1_WAKEUP_ANY_LOW);
+    }
 #elif defined(BOARD_SEEED_STICKY)
     display.hibernate();
     endEbookStorageForSleep();
@@ -606,7 +653,7 @@ void BatteryMgr::drawStatusIndicator() {
     // Only update if charging state actually changed
     bool currentCharging = _cachedStatus.charging;
 
-#if BOOK32_HAS_TOUCH
+#if !BOOK32_GXEPD_PANEL
     // Sticky uses a single full-frame canvas. Its active app redraws the
     // battery as part of the complete composited frame; drawing only this
     // indicator would replace the rest of that canvas with white before the

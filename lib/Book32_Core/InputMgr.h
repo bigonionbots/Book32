@@ -59,7 +59,15 @@ private:
 #endif
 #if defined(PIN_BUTTON_PREV)
     OneButton btnPrev;
+#endif
+#if defined(PIN_BUTTON_HOME)
     OneButton btnHome;
+#endif
+#if defined(BOARD_M5_PAPERDIY)
+    // The M5PM1's power button, polled over I2C on the main loop.
+    void pollPowerButton();
+    uint32_t _powerPolledAt = 0, _powerDownAt = 0;
+    bool _powerDown = false, _powerSleepSent = false;
 #endif
 #if BOOK32_HAS_TOUCH
     StickyTouch touch;
@@ -125,4 +133,5 @@ private:
     static void staticUp(void* ptr);
     static void staticDown(void* ptr);
     static void staticHome(void* ptr);
+    static void staticBack(void* ptr);
 };

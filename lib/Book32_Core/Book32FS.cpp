@@ -16,6 +16,14 @@ bool beginEbookStorage(bool internalPartitionBlank) {
     SPI.begin(SD_SCK, SD_MISO, SD_MOSI, SD_CS);
     pinMode(46, OUTPUT); // Deselect LoRa on the shared SPI bus.
     digitalWrite(46, HIGH);
+#elif defined(BOARD_M5_PAPERDIY)
+    // After the panel: FastEPD also claims SD_CS (47) as its dummy DC pin,
+    // and the GPIO matrix keeps the last assignment.
+    pinMode(SD_DETECT, INPUT_PULLUP);
+    if (digitalRead(SD_DETECT) != LOW) Serial.println("Ebook storage: card detect reads no card; trying anyway");
+    pinMode(SD_CS, OUTPUT);
+    digitalWrite(SD_CS, HIGH);
+    SPI.begin(SD_SCK, SD_MISO, SD_MOSI, SD_CS);
 #else
     pinMode(SD_POWER_ENABLE, OUTPUT);
     digitalWrite(SD_POWER_ENABLE, HIGH);

@@ -1,4 +1,5 @@
 #include "AppReader.h"
+#include "Config.h"
 #include "SoundMgr.h"
 #include "DisplayMgr.h"
 #include "InputMgr.h"
@@ -31,7 +32,7 @@ static const unsigned long PROGRESS_SAVE_DELAY_MS = 2000;
 // The library is a bookcase: three shelves of three books, each standing on
 // its plank with its title underneath. Covers are decoded (and cached) at
 // up to this size; the LILYGO's taller screen takes larger ones.
-#if defined(BOARD_LILYGO_T5S3_PRO)
+#if BOOK32_PARALLEL_PANEL
 static const int LIBRARY_COVER_WIDTH = 120;
 static const int LIBRARY_COVER_HEIGHT = 160;
 #else
@@ -741,7 +742,7 @@ bool AppReader::drawSleepCover(const String& message) {
     };
     bool grayShown = false;
     if (cover.gray()) {
-#if defined(BOARD_LILYGO_T5S3_PRO)
+#if BOOK32_PARALLEL_PANEL
         display.setFullWindow();
         display.fillScreen(GxEPD_WHITE);
         drawMessage();
@@ -772,7 +773,7 @@ bool AppReader::drawSleepCover(const String& message) {
 
 void AppReader::handleInput(InputAction action) {
     if (action == INPUT_NONE) return;
-#if defined(BOARD_LILYGO_T5S3_PRO)
+#if BOOK32_HAS_BACK_BUTTON
     if (action == INPUT_BACK) {
         if (_state == VIEW_READING) backToLibrary();
         else if (!_home) { markProgressInactive(); AppMgr::getInstance().switchTo(0); }
