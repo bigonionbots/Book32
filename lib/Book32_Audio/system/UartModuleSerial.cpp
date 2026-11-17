@@ -49,10 +49,26 @@ std::atomic<uint32_t> rxDropped{0};
 std::atomic<uint32_t> lineErrors{0};
 uint32_t starts = 0;
 uint32_t stops = 0;
+// Calls inside the driver right now. stop() marks the link stopped, waits for this to reach zero,
+// and only then deletes the driver: AudioLink's task is nearly always inside read().
+std::atomic<int> users{0};
+
+// Holds the driver for one call. ok is false once stop() has begun (or before start()).
+class Use {
+ public:
+  Use() {
+    ++users;
+    ok = current == State::Connected;
+  }
+  ~Use() { --users; }
+  Use(const Use&) = delete;
+  Use& operator=(const Use&) = delete;
+  bool ok;
+};
 
 // The driver reports overflows and line errors as events; count them (any task, non-blocking).
 void drainEvents() {
-  if (!events) return;
+  if (!events) return;  // the caller holds a Use
   uart_event_t event;
   while (xQueueReceive(events, &event, 0) == pdTRUE) {
     switch (event.type) {
@@ -107,6 +123,7 @@ void stop() {
     return;
   }
   current = State::Stopped;
+  while (users.load() > 0) vTaskDelay(1);  // a read waits at most its timeout
   uart_driver_delete(PORT);
   events = nullptr;
   ++stops;
@@ -128,7 +145,10 @@ DeviceInfo device() {
 }
 
 Counters counters() {
-  drainEvents();
+  {
+    Use use;
+    if (use.ok) drainEvents();
+  }
   Counters out;
   out.rxBytes = rxBytes;
   out.txBytes = txBytes;
@@ -142,18 +162,18 @@ Counters counters() {
 size_t write(const uint8_t* data, const size_t length, uint32_t) {
   // The timeout is moot: the TX buffer takes a whole frame unless several KB are already queued,
   // and then the wait is the time the UART needs to send them.
-  if (current != State::Connected || length == 0) return 0;
+  Use use;
+  if (!use.ok || length == 0) return 0;
   const int written = uart_write_bytes(PORT, data, length);
   if (written != static_cast<int>(length)) return 0;
   txBytes += length;
   return length;
 }
 
-size_t read(uint8_t* data, const size_t length, const uint32_t timeoutMs) {
-  if (current != State::Connected || length == 0) {
-    vTaskDelay(pdMS_TO_TICKS(timeoutMs));
-    return 0;
-  }
+namespace {
+
+// read() with the driver held.
+size_t readHeld(uint8_t* data, const size_t length, const uint32_t timeoutMs) {
   drainEvents();
   // Wait for the first byte, then take whatever else has arrived.
   int got = uart_read_bytes(PORT, data, 1, pdMS_TO_TICKS(timeoutMs));
@@ -168,8 +188,20 @@ size_t read(uint8_t* data, const size_t length, const uint32_t timeoutMs) {
   return static_cast<size_t>(got);
 }
 
+}  // namespace
+
+size_t read(uint8_t* data, const size_t length, const uint32_t timeoutMs) {
+  {
+    Use use;
+    if (use.ok && length > 0) return readHeld(data, length, timeoutMs);
+  }
+  vTaskDelay(pdMS_TO_TICKS(timeoutMs));
+  return 0;
+}
+
 void clearReceived() {
-  if (current == State::Connected) uart_flush_input(PORT);
+  Use use;
+  if (use.ok) uart_flush_input(PORT);
 }
 
 }  // namespace ModuleSerial
