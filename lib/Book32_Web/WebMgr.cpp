@@ -72,7 +72,7 @@ static bool partitionLooksBlank(const esp_partition_t* partition) {
     if (!partition) return false;
 
     uint8_t buffer[256];
-    size_t bytesToCheck = min((size_t)4096, partition->size);
+    size_t bytesToCheck = min((size_t)4096, (size_t)partition->size);
     for (size_t offset = 0; offset < bytesToCheck; offset += sizeof(buffer)) {
         size_t readLen = min(sizeof(buffer), bytesToCheck - offset);
         if (esp_partition_read(partition, offset, buffer, readLen) != ESP_OK) {
