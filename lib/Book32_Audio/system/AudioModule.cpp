@@ -141,6 +141,9 @@ void hangUpHeadset() {
 void boostOff(const char* reason) {
   hangUpHeadset();
 #if INX_AUDIO_PM1_POWER
+  // The UART first: a module whose supply is switched off (a load switch on PY_G0) would
+  // otherwise be fed through its RX pin by the idle-high TX line.
+  if (linkOn) setLinkEnabled(false);
   PaperDiyPower::setAudioModulePower(false);
   if (powerOn) logf("Power: module off (%s)", reason);
 #else

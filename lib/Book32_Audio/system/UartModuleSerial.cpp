@@ -127,9 +127,12 @@ void stop() {
   uart_driver_delete(PORT);
   events = nullptr;
   ++stops;
-  // Back to plain inputs, so nothing drives the module's pins while it is off.
-  gpio_reset_pin(static_cast<gpio_num_t>(INX_AUDIO_UART_TX));
-  gpio_reset_pin(static_cast<gpio_num_t>(INX_AUDIO_UART_RX));
+  // Back to floating inputs (gpio_reset_pin leaves a pull-up on), so nothing feeds a module
+  // whose supply is off.
+  for (const int pin : {INX_AUDIO_UART_TX, INX_AUDIO_UART_RX}) {
+    gpio_reset_pin(static_cast<gpio_num_t>(pin));
+    gpio_pullup_dis(static_cast<gpio_num_t>(pin));
+  }
 }
 
 State state() { return current; }
