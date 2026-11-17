@@ -587,6 +587,7 @@ getSleepSettings();
 getGamepad();
 getDisplaySettings();
 getWifiStatus();
+getAudioStatus();
 
 // === Wi-Fi ===
 let wifiPoll = null;
@@ -1158,3 +1159,133 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 });
+
+
+// === Audiobooks (LILYGO audio build; the endpoint is absent elsewhere) ===
+let audioPoll = null;
+let audioSettingsLoaded = false;
+
+function audioTime(ms) {
+    const s = Math.floor(ms / 1000);
+    const h = Math.floor(s / 3600), m = Math.floor(s / 60) % 60;
+    return h ? `${h}h ${String(m).padStart(2, '0')}m` : `${m}m`;
+}
+
+function getAudioStatus() {
+    fetch('/api/audio/status')
+        .then(response => response.ok ? response.json() : null)
+        .then(data => {
+            if (!data || !data.available) return;
+            document.getElementById('audio-nav').classList.remove('hidden');
+            // This build is the fork's (AGPL: offer the source of what runs here).
+            document.querySelectorAll('a[href*="github.com/rolohaun/Book32"]').forEach(a => {
+                a.href = 'https://github.com/bigonionbots/Book32';
+            });
+            document.getElementById('audiobooks').classList.remove('hidden');
+            const status = document.getElementById('abs-status');
+            const working = data.signIn === 'working';
+            if (data.signedIn) status.textContent = `Signed in as ${data.user} on ${data.server}.`;
+            else if (working) status.textContent = 'Signing in...';
+            else if (data.signIn && data.signIn !== 'ok') status.textContent = data.signIn;
+            else status.textContent = 'Not signed in.';
+            document.getElementById('abs-signin').classList.toggle('hidden', !!data.signedIn);
+            document.getElementById('abs-signout').classList.toggle('hidden', !data.signedIn);
+            if (!data.signedIn && data.server && !document.getElementById('abs-server').value) {
+                document.getElementById('abs-server').value = data.server;
+                document.getElementById('abs-user').value = data.user || '';
+            }
+
+            const playing = document.getElementById('audio-playing');
+            if (data.playing) {
+                const p = data.playing;
+                const where = p.output === 'headphones' ? 'USB headphones' : p.output === 'waiting' ? 'waiting for an output' : 'the audio module';
+                const pos = p.durationMs ? ` ${audioTime(p.positionMs)} of ${audioTime(p.durationMs)}.` : '';
+                playing.textContent = `${p.paused ? 'Paused' : 'Playing'}: ${p.title}${p.chapter ? ' (' + p.chapter + ')' : ''} on ${where}.${pos}`;
+            } else {
+                playing.textContent = 'Nothing is playing.';
+            }
+            document.getElementById('audio-port').textContent = data.headphones ? `USB headphones: ${data.headphones}` : (data.portOn ? 'USB-C port on.' : 'USB-C port off.');
+
+            document.getElementById('audio-queue-hint').textContent = data.charging
+                ? 'On the charger: queued books download now.'
+                : 'On battery: queued books wait for the charger, unless started now.';
+            const list = document.getElementById('audio-queue');
+            list.innerHTML = '';
+            if (!data.queue.length) {
+                const item = document.createElement('li');
+                item.textContent = 'Nothing queued. Choose Download on a book on the device.';
+                list.append(item);
+            }
+            data.queue.forEach(q => {
+                const item = document.createElement('li');
+                const label = document.createElement('span');
+                label.textContent = `${q.title} — ${q.state}${q.error ? ': ' + q.error : ''}`;
+                item.append(label);
+                [['start', 'Start now'], ['pause', 'Pause'], ['remove', 'Remove']].forEach(([action, text]) => {
+                    const button = document.createElement('button');
+                    button.className = 'btn';
+                    button.textContent = text;
+                    button.onclick = () => audioQueue(action, q.id);
+                    item.append(button);
+                });
+                list.append(item);
+            });
+
+            if (!audioSettingsLoaded) {
+                audioSettingsLoaded = true;
+                document.getElementById('audio-tz').value = (data.tzMinutes || 0) / 60;
+                document.getElementById('audio-autodl').checked = data.autoDownloadOnCharger !== false;
+            }
+            clearTimeout(audioPoll);
+            audioPoll = setTimeout(getAudioStatus, working ? 1500 : 5000);
+        })
+        .catch(() => {});
+}
+
+function absSignIn() {
+    const server = document.getElementById('abs-server').value.trim();
+    const user = document.getElementById('abs-user').value.trim();
+    const password = document.getElementById('abs-password').value;
+    const status = document.getElementById('abs-status');
+    if (!server || !user) { status.textContent = 'Enter the server address and your user name.'; return; }
+    status.textContent = 'Signing in...';
+    fetch('/api/audio/signin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ server, user, password }),
+    })
+        .then(response => response.json().then(data => ({ ok: response.ok, data })))
+        .then(({ ok, data }) => {
+            if (!ok) { status.textContent = data.error || 'Could not sign in.'; return; }
+            document.getElementById('abs-password').value = '';
+            clearTimeout(audioPoll);
+            audioPoll = setTimeout(getAudioStatus, 1500);
+        })
+        .catch(() => { status.textContent = 'Connection error.'; });
+}
+
+function absSignOut() {
+    fetch('/api/audio/signout', { method: 'POST' })
+        .then(() => { clearTimeout(audioPoll); audioPoll = setTimeout(getAudioStatus, 2500); })
+        .catch(() => {});
+}
+
+function audioQueue(action, id) {
+    fetch('/api/audio/queue', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action, id }),
+    }).then(() => { clearTimeout(audioPoll); audioPoll = setTimeout(getAudioStatus, 2500); });
+}
+
+function saveAudioSettings() {
+    const hours = parseFloat(document.getElementById('audio-tz').value) || 0;
+    const status = document.getElementById('audio-settings-status');
+    fetch('/api/audio/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tzMinutes: Math.round(hours * 60), autoDownloadOnCharger: document.getElementById('audio-autodl').checked }),
+    })
+        .then(response => { status.textContent = response.ok ? 'Saved.' : 'Could not save.'; })
+        .catch(() => { status.textContent = 'Connection error.'; });
+}

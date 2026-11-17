@@ -5,9 +5,9 @@
 #include "../../include/Config.h"
 #include "../../include/NetworkState.h"
 #include <WiFi.h>
+#include "../Book32_Core/AudioHooks.h"
 #if BOOK32_HAS_INKBOY
 #include "NetworkWork.h"
-#include "../Book32_Core/AudioHooks.h"
 #endif
 
 HomeServices& HomeServices::getInstance() {

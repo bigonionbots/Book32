@@ -1,4 +1,5 @@
 #include "WebMgr.h"
+#include "../Book32_Core/AudioHooks.h"
 #include <ESPAsyncWebServer.h>
 #include <AsyncJson.h>
 #include <WiFi.h>
@@ -1456,6 +1457,9 @@ void WebMgr::setupEndpoints() {
         }
     );
     server->addHandler(wifiConnectHandler);
+
+    // Audiobooks card (LILYGO audio build; nothing elsewhere).
+    AudioHooks::registerWeb(*server);
 
     // Static Files - serve from SystemFS first (where OTA filesystem updates go)
     // Fall back to EbookFS if not found

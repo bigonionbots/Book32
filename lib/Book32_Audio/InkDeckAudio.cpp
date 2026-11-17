@@ -12,6 +12,10 @@
 #include "system/AudioModule.h"
 #include "system/AudioPlayer.h"
 
+namespace AudioWeb {
+void service();
+}
+
 namespace AudioHooks {
 
 void begin() {
@@ -33,6 +37,7 @@ void service() {
   Abs::service();
   AbsCovers::service();
   AbsQueue::service();
+  AudioWeb::service();
 }
 
 bool keepAwake() { return AudioPlayer::keepAwake() || AbsQueue::keepAwake(); }

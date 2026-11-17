@@ -4,6 +4,8 @@
 // are empty inline functions, so the other builds are unchanged.
 #include "Config.h"
 
+class AsyncWebServer;
+
 #if defined(INKDECK_AUDIO) && INKDECK_AUDIO
 namespace AudioHooks {
 // Boot, after the filesystems are mounted.
@@ -19,6 +21,8 @@ bool holdsRadio();
 bool needsFullCpu();
 // Before deep sleep: saves progress, pauses downloads, turns the boost off.
 void shutdown();
+// The web page's Audiobooks card (/api/audio/...).
+void registerWeb(AsyncWebServer& server);
 }  // namespace AudioHooks
 #else
 namespace AudioHooks {
@@ -28,5 +32,6 @@ inline bool keepAwake() { return false; }
 inline bool holdsRadio() { return false; }
 inline bool needsFullCpu() { return false; }
 inline void shutdown() {}
+inline void registerWeb(AsyncWebServer&) {}
 }  // namespace AudioHooks
 #endif

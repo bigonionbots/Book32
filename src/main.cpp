@@ -26,6 +26,7 @@
 #include "../Apps/AppReader/AppReader.h"
 #include "../Apps/AppKlipper/AppKlipper.h"
 #include "../Apps/AppTodo/AppTodo.h"
+#include "../Apps/AppAudiobooks/AppAudiobooks.h"
 #if BOOK32_HAS_TOUCH
 #include "../Apps/AppWifi/AppWifi.h"
 #endif
@@ -268,7 +269,12 @@ void setup() {
 #if BOOK32_HAS_INKBOY
     if (selection.enabled(AppSelection::INKADE)) appMgr.registerApp(new AppPaperboy());
 #endif
+#if defined(INKDECK_AUDIO) && INKDECK_AUDIO
+    // Audiobooks is always there in the audio build, so the menu always is.
+    appMgr.registerApp(new AppAudiobooks());
+#else
     if (!selection.launcher()) appMgr.setHome(1);  // the eReader's library
+#endif
 
     displayMgr.showBootScreen(90, "Starting network");
     gNetworkStartupInProgress = true;

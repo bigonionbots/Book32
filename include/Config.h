@@ -1,6 +1,10 @@
 #pragma once
 
-#if defined(BOARD_LILYGO_T5S3_PRO)
+#if defined(BOARD_LILYGO_T5S3_PRO) && defined(INKDECK_AUDIO) && INKDECK_AUDIO
+#define SYSTEM_VERSION "1.4.7"
+#define DEVICE_NAME "LILYGO T5 S3 Pro Lite (H752-01) + audio"
+#define SLEEP_TIMEOUT_DEFAULT_MINUTES 10
+#elif defined(BOARD_LILYGO_T5S3_PRO)
 #define SYSTEM_VERSION "1.4.7"
 #define DEVICE_NAME "LILYGO T5 E-Paper S3 Pro Lite (H752-01)"
 #define SLEEP_TIMEOUT_DEFAULT_MINUTES 10
@@ -74,8 +78,15 @@
 #define BOOK32_HAS_TOUCH 1
 #define BOOK32_HAS_SD 1
 #define BOOK32_HAS_BUZZER 0
+#if defined(INKDECK_AUDIO) && INKDECK_AUDIO
+// The audio build updates from its own release assets on the fork (below),
+// never from the stock LILYGO firmware.
+#define OTA_FIRMWARE_ASSET "inkdeck-lilygo-audio-firmware.bin"
+#define OTA_FILESYSTEM_ASSET "inkdeck-lilygo-audio-littlefs.bin"
+#else
 #define OTA_FIRMWARE_ASSET "inkdeck-lilygo-firmware.bin"
 #define OTA_FILESYSTEM_ASSET "inkdeck-lilygo-littlefs.bin"
+#endif
 #elif defined(BOARD_SEEED_STICKY)
 // Seeed reTerminal E1002 / Sticky 3.97" (SSD1677)
 #define PIN_BUTTON       4
@@ -188,5 +199,10 @@
 #define BATTERY_FULL_VOLTAGE 4.20f
 
 // GitHub OTA Config
+#if defined(INKDECK_AUDIO) && INKDECK_AUDIO
+#define GITHUB_REPO "bigonionbots/Book32"
+#define GITHUB_USER "bigonionbots"
+#else
 #define GITHUB_REPO "rolohaun/Book32"
 #define GITHUB_USER "rolohaun"
+#endif

@@ -9,3 +9,8 @@ Open_Sans/*.ttf
 Open_Sans/static/*.ttf
 !Open_Sans/static/OpenSans-Regular.ttf
 !Open_Sans/static/OpenSans-Bold.ttf
+
+# Written by the pioarduino build (env:lilygo_t5s3_pro_audio)
+src/idf_component.yml
+src/idf_component.yml.orig
+__pycache__/
