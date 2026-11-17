@@ -1,0 +1,14 @@
+{
+  "name": "Book32_Audio",
+  "version": "1.0.0",
+  "description": "Audiobooks for the LILYGO audio build: Audiobookshelf, the USB-C audio module and USB headphone adapters (ported from bigonionbots/inx-pro)",
+  "license": "MIT",
+  "platforms": "espressif32",
+  "build": {
+    "srcDir": ".",
+    "includeDir": ".",
+    "srcFilter": ["+<*>"],
+    "flags": ["-Icompat"],
+    "extraScript": "audio_config.py"
+  }
+}

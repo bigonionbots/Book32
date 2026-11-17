@@ -9,6 +9,7 @@
 #include "InputMgr.h"
 #include "AppMgr.h"
 #include "RomStorage.h"
+#include "AudioHooks.h"
 #include "../Book32_Web/WebMgr.h"
 #include <ArduinoJson.h>
 #include <Fonts/FreeSans18pt7b.h>
@@ -162,7 +163,12 @@ void BatteryMgr::init() {
 void BatteryMgr::update() {
     unsigned long now = millis();
 
-    if (_readerActive && !_cpuReduced && now - _lastActivityTime >= 1500) {
+    // An audiobook decodes on the S3 (USB headphones): no 80 MHz while it plays.
+    if (_cpuReduced && AudioHooks::needsFullCpu()) {
+        setCpuFrequencyMhz(240);
+        _cpuReduced = false;
+    }
+    if (_readerActive && !_cpuReduced && now - _lastActivityTime >= 1500 && !AudioHooks::needsFullCpu()) {
         if (setCpuFrequencyMhz(80)) {
             _cpuReduced = true;
             Serial.println("AppReader: CPU idling at 80 MHz");
@@ -221,6 +227,9 @@ void BatteryMgr::update() {
         Serial.println("CRITICAL: Battery voltage too low! Shutting down...");
         shutdownLowBattery();
     }
+
+    // A playing audiobook, or downloads on the charger, keep the device awake.
+    if (AudioHooks::keepAwake()) _lastActivityTime = now;
 
     // Check for idle timeout (only if enabled and not charging)
     if (_sleepTimeoutMinutes > 0 && !_cachedStatus.charging) {
@@ -492,6 +501,7 @@ void BatteryMgr::enterIdleSleep() {
     // are removed.
     App* currentApp = AppMgr::getInstance().getCurrentApp();
     if (currentApp) currentApp->stop();
+    AudioHooks::shutdown();
     InputMgr::getInstance().prepareForSleep();
     GamepadMgr::getInstance().shutdown();
     WebMgr::getInstance().stop();

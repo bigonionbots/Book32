@@ -7,6 +7,7 @@
 #include <WiFi.h>
 #if BOOK32_HAS_INKBOY
 #include "NetworkWork.h"
+#include "../Book32_Core/AudioHooks.h"
 #endif
 
 HomeServices& HomeServices::getInstance() {
@@ -108,8 +109,10 @@ void HomeServices::wifiWakeWork(void* parameter) {
             }
 #endif
             WebMgr::getInstance().stop();
-            WiFi.disconnect(false);
-            WiFi.mode(WIFI_OFF);
+            if (!AudioHooks::holdsRadio()) {  // a stream keeps its Wi-Fi
+                WiFi.disconnect(false);
+                WiFi.mode(WIFI_OFF);
+            }
             self->_wifiStarting = false;
             self->_changed = true;
             self->_wifiTaskHandle = nullptr;
