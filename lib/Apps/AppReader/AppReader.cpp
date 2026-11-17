@@ -1,5 +1,6 @@
 #include "AppReader.h"
 #include "Config.h"
+#include "../../Book32_Core/AudioHooks.h"
 #include "SoundMgr.h"
 #include "DisplayMgr.h"
 #include "InputMgr.h"
@@ -397,6 +398,8 @@ void AppReader::resumeSavedBookOnStart() {
 
 void AppReader::powerDownRadio() {
     if (WiFi.getMode() == WIFI_OFF) return;
+    // An audiobook streaming (or downloading) while reading keeps its Wi-Fi.
+    if (AudioHooks::holdsRadio()) { WebMgr::getInstance().stop(); return; }
     WebMgr::getInstance().stop();
     delay(50);
     WiFi.disconnect(false);

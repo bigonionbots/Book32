@@ -18,8 +18,12 @@ void LilygoDisplay::init(uint32_t, bool, uint16_t, bool) {
     digitalWrite(PIN_FRONTLIGHT, LOW);
     gpio_hold_dis(gpio_num_t(PIN_FRONTLIGHT));
     gpio_deep_sleep_hold_dis();
+#if ESP_ARDUINO_VERSION_MAJOR >= 3
+    ledcAttachChannel(PIN_FRONTLIGHT, 500, 8, FRONTLIGHT_CHANNEL); // PT4103 requires <= 1 kHz PWM.
+#else
     ledcSetup(FRONTLIGHT_CHANNEL, 500, 8); // PT4103 requires <= 1 kHz PWM.
     ledcAttachPin(PIN_FRONTLIGHT, FRONTLIGHT_CHANNEL);
+#endif
     setFrontlight(false);
     Wire.begin(TOUCH_SDA, TOUCH_SCL, 400000);
     Wire.setTimeOut(20);
@@ -205,7 +209,11 @@ void LilygoDisplay::hibernate() {
     stopVideo();
     if (_ready) _panel.einkPower(0);
     setFrontlight(false);
+#if ESP_ARDUINO_VERSION_MAJOR >= 3
+    ledcDetach(PIN_FRONTLIGHT);
+#else
     ledcDetachPin(PIN_FRONTLIGHT);
+#endif
     pinMode(PIN_FRONTLIGHT, OUTPUT);
     digitalWrite(PIN_FRONTLIGHT, LOW);
     gpio_hold_en(gpio_num_t(PIN_FRONTLIGHT));
@@ -215,7 +223,12 @@ void LilygoDisplay::hibernate() {
 void LilygoDisplay::setFrontlight(bool on) {
     // PWM is independent of panel refresh and does not disturb game video.
     _frontlightOn = on;
-    ledcWrite(FRONTLIGHT_CHANNEL, on ? (_brightness * 255 + 50) / 100 : 0);
+    const uint32_t duty = on ? (_brightness * 255 + 50) / 100 : 0;
+#if ESP_ARDUINO_VERSION_MAJOR >= 3
+    ledcWrite(PIN_FRONTLIGHT, duty); // Arduino 3 addresses LEDC by pin.
+#else
+    ledcWrite(FRONTLIGHT_CHANNEL, duty);
+#endif
 }
 
 void LilygoDisplay::setBrightness(uint8_t percent) {

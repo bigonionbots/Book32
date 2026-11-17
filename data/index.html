@@ -21,6 +21,7 @@
                     <li id="games-nav" class="hidden"><button data-tab="games" onclick="showTab('games')"><span>⊞</span>Game ROMs</button></li>
                     <li id="klipper-nav"><button data-tab="klipper" onclick="showTab('klipper')"><span>◫</span>Klipper</button></li>
                     <li id="todo-nav"><button data-tab="todo" onclick="showTab('todo')"><span>✓</span>Todo</button></li>
+                    <li id="audio-nav" class="hidden"><button data-tab="audiobooks" onclick="showTab('audiobooks')"><span>♫</span>Audiobooks</button></li>
                     <li><button data-tab="settings" onclick="showTab('settings')"><span>⚙</span>Settings</button></li>
                 </ul>
             </nav>
@@ -128,6 +129,38 @@
                 <div class="page-heading"><p class="eyebrow">Tasks</p><h1>Todo list</h1><p>Keep a simple checklist synced with the device.</p></div>
                 <article class="card section-card"><div class="todo-input-container"><input type="text" id="new-todo-input" placeholder="What needs doing?" maxlength="100"><button class="btn primary btn-add" onclick="addTodo()">Add task</button></div></article>
                 <article class="card section-card"><div id="todo-list"><p class="hint">Loading…</p></div></article>
+            </section>
+
+            <section id="audiobooks" class="tab-content hidden">
+                <div class="page-heading"><p class="eyebrow">Audiobooks</p><h1>Listen on InkDeck</h1><p>Books from your Audiobookshelf server or the MicroSD card, through the USB-C audio module or USB headphones.</p></div>
+                <div class="content-grid">
+                    <article class="card section-card">
+                        <div class="card-heading"><div><h2>Audiobookshelf</h2><p>Sign in once; InkDeck keeps a token, never the password. Then open <strong>Audiobooks</strong> on the device to browse, stream and download.</p></div></div>
+                        <p id="abs-status" class="status-msg" role="status">Loading...</p>
+                        <div id="abs-signin">
+                            <label class="text-field" for="abs-server"><span>Server address</span><input type="url" id="abs-server" placeholder="https://abs.example.com" autocomplete="url"></label>
+                            <label class="text-field" for="abs-user"><span>User name</span><input type="text" id="abs-user" autocomplete="username"></label>
+                            <label class="text-field" for="abs-password"><span>Password</span><input type="password" id="abs-password" autocomplete="current-password"></label>
+                            <div class="action-row"><button class="btn primary" onclick="absSignIn()">Sign in</button></div>
+                        </div>
+                        <div id="abs-signout" class="action-row hidden"><button class="btn secondary" onclick="absSignOut()">Sign out</button></div>
+                    </article>
+                    <article class="card section-card">
+                        <div class="card-heading"><div><h2>Now playing</h2><p>Control playback on the device.</p></div></div>
+                        <p id="audio-playing" class="status-msg" role="status">Nothing is playing.</p>
+                        <p id="audio-port" class="hint"></p>
+                    </article>
+                    <article class="card section-card">
+                        <div class="card-heading"><div><h2>Downloads</h2><p id="audio-queue-hint">Queued books download while InkDeck is on its charger, into /Audiobooks on the card.</p></div></div>
+                        <ul id="audio-queue" class="gamepad-list"></ul>
+                    </article>
+                    <article class="card section-card">
+                        <div class="card-heading"><div><h2>Listening settings</h2><p>Your time zone dates the listening sessions sent to Audiobookshelf.</p></div></div>
+                        <label class="text-field" for="audio-tz"><span>Time zone (hours from UTC)</span><input type="number" id="audio-tz" min="-12" max="14" step="0.25" value="0"></label>
+                        <label class="text-field" for="audio-autodl"><span><input type="checkbox" id="audio-autodl" checked> Download queued books whenever InkDeck is charging</span></label>
+                        <div class="action-row"><button class="btn secondary" onclick="saveAudioSettings()">Save</button><div id="audio-settings-status" class="status-msg" role="status"></div></div>
+                    </article>
+                </div>
             </section>
 
             <section id="settings" class="tab-content">

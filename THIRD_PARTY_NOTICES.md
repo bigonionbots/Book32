@@ -25,6 +25,26 @@ and exact PlatformIO library sources used. The Arduino core/library sources
 are included; the pinned Espressif toolchain and SDK are installed by PlatformIO.
 Rebuilding and installing modified firmware does not require a signing key.
 
+## Audiobooks (LILYGO audio build only)
+
+The `lilygo_t5s3_pro_audio` build adds audiobook playback. None of this is in
+the other builds.
+
+- Inx Pro audio engine (`lib/Book32_Audio/abs`, `audio`, `system`), from
+  https://github.com/bigonionbots/inx-pro (branch `feat/usb-headphones`,
+  `905f400`). MIT License, Copyright (c) 2025 Dave Allie and contributors.
+  Local changes are listed in `lib/Book32_Audio/README.md`.
+- ESP-IDF USB Host Library 5.5.2 and the Espressif `usb_host_cdc_acm`,
+  `usb_host_ch34x_vcp`, `usb_host_cp210x_vcp`, `usb_host_ftdi_vcp` and
+  `usb_host_uac` components (`third_party/usb_host`). Apache License 2.0;
+  each folder keeps its `LICENSE`. Unmodified apart from a `library.json` and
+  a forced control-transfer size (`inx_usb_config.h`).
+- minimp3 (`third_party/minimp3`), by lieff. CC0 1.0.
+- PacketVideo / Android opencore AAC decoder (`third_party/opencore_aacdec`),
+  android-4.1.2_r2.1. Apache License 2.0; see its `NOTICE`.
+- Audio module link protocol (`shared/audio_link`), verbatim copies from
+  https://github.com/bigonionbots/atom-lite-audio-module. MIT License.
+
 ## InkBoy (Sticky fast display drive)
 
 `lib/Book32_Core/InkBoyDrive.h` ports the display drive of

@@ -8,7 +8,12 @@
 // 1. Miniz is often built-in to ESP32 Arduino Core, but sometimes hidden.
 // We can try using <rom/miniz.h> or if that fails, use standard zlib if available.
 // ESP32-S3 ROM has miniz.
+#include <esp_idf_version.h>
+#if ESP_IDF_VERSION_MAJOR >= 5
+#include <miniz.h>
+#else
 #include <rom/miniz.h>
+#endif
 
 class B32Reader {
 public:

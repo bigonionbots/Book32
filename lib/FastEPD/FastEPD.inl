@@ -337,7 +337,11 @@ static uint8_t bSlowSPH = 0;
 #if defined(BOARD_LILYGO_T5S3_PRO)
 // Used only by videoScan's exclusive queued transport. Scalar atomics are
 // lock-free on ESP32-S3; publish pins/count before enabling the ISR branch.
+// GCC 14 (ESP-IDF 5, the audio build) no longer reports this at compile time;
+// there the counters' aligned loads and stores go through IDF's IRAM atomics.
+#if ESP_IDF_VERSION_MAJOR < 5
 static_assert(__atomic_always_lock_free(sizeof(uint32_t), nullptr), "video ISR counters must be lock-free");
+#endif
 static uint32_t video_queue_active = 0, video_queue_completed = 0;
 static uint32_t video_queue_total = 0;
 static gpio_num_t video_queue_ckv, video_queue_le;

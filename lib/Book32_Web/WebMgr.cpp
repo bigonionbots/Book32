@@ -1,4 +1,5 @@
 #include "WebMgr.h"
+#include "../Book32_Core/AudioHooks.h"
 #include <ESPAsyncWebServer.h>
 #include <AsyncJson.h>
 #include <WiFi.h>
@@ -72,7 +73,7 @@ static bool partitionLooksBlank(const esp_partition_t* partition) {
     if (!partition) return false;
 
     uint8_t buffer[256];
-    size_t bytesToCheck = min((size_t)4096, partition->size);
+    size_t bytesToCheck = min((size_t)4096, (size_t)partition->size);
     for (size_t offset = 0; offset < bytesToCheck; offset += sizeof(buffer)) {
         size_t readLen = min(sizeof(buffer), bytesToCheck - offset);
         if (esp_partition_read(partition, offset, buffer, readLen) != ESP_OK) {
@@ -1456,6 +1457,9 @@ void WebMgr::setupEndpoints() {
         }
     );
     server->addHandler(wifiConnectHandler);
+
+    // Audiobooks card (LILYGO audio build; nothing elsewhere).
+    AudioHooks::registerWeb(*server);
 
     // Static Files - serve from SystemFS first (where OTA filesystem updates go)
     // Fall back to EbookFS if not found

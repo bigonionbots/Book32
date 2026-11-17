@@ -16,6 +16,7 @@
 #include "FontMgr.h"
 #include "SoundMgr.h"
 #include "AppSelection.h"
+#include "AudioHooks.h"
 #if BOOK32_HAS_INKBOY
 #include "../Apps/AppPaperboy/AppPaperboy.h"
 #endif
@@ -25,6 +26,7 @@
 #include "../Apps/AppReader/AppReader.h"
 #include "../Apps/AppKlipper/AppKlipper.h"
 #include "../Apps/AppTodo/AppTodo.h"
+#include "../Apps/AppAudiobooks/AppAudiobooks.h"
 #if BOOK32_HAS_TOUCH
 #include "../Apps/AppWifi/AppWifi.h"
 #endif
@@ -108,8 +110,10 @@ static void networkStartupWork(void* parameter) {
         if (NetworkWork::gate().paused()) { gNetworkStartupInProgress=false; return; }
 #endif
         WebMgr::getInstance().stop();
-        WiFi.disconnect(false);
-        WiFi.mode(WIFI_OFF);
+        if (!AudioHooks::holdsRadio()) {  // a stream keeps its Wi-Fi
+            WiFi.disconnect(false);
+            WiFi.mode(WIFI_OFF);
+        }
         gNetworkStartupInProgress = false;
         return;
     }
@@ -259,6 +263,10 @@ void setup() {
     displayMgr.showBootScreen(72, "Preparing controls");
     BatteryMgr::getInstance().init();
 
+    // Audiobooks (LILYGO audio build only): player, Audiobookshelf, USB-C
+    // module and headphones. Needs the SD card and the I2C bus up.
+    AudioHooks::begin();
+
     // 4. Input Init
     inputMgr.init();
     // Bluetooth LE gamepad: reconnects a saved pad in the background.
@@ -281,7 +289,12 @@ void setup() {
 #if BOOK32_HAS_INKBOY
     if (selection.enabled(AppSelection::INKADE)) appMgr.registerApp(new AppPaperboy());
 #endif
+#if defined(INKDECK_AUDIO) && INKDECK_AUDIO
+    // Audiobooks is always there in the audio build, so the menu always is.
+    appMgr.registerApp(new AppAudiobooks());
+#else
     if (!selection.launcher()) appMgr.setHome(1);  // the eReader's library
+#endif
 
     displayMgr.showBootScreen(90, "Starting network");
     gNetworkStartupInProgress = true;
@@ -317,6 +330,7 @@ void loop() {
     InputMgr::getInstance().update();
     AppMgr::getInstance().update();
     AppMgr::getInstance().draw();  // Trigger app rendering
+    AudioHooks::service();
     WebMgr::getInstance().update();
     BatteryMgr::getInstance().update();  // Check charging state and critical battery
     BatteryMgr::getInstance().drawStatusIndicator();  // Update charging indicator on e-ink (partial)

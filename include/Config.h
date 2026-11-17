@@ -1,6 +1,10 @@
 #pragma once
 
-#if defined(BOARD_LILYGO_T5S3_PRO)
+#if defined(BOARD_LILYGO_T5S3_PRO) && defined(INKDECK_AUDIO) && INKDECK_AUDIO
+#define SYSTEM_VERSION "1.4.7"
+#define DEVICE_NAME "LILYGO T5 S3 Pro Lite (H752-01) + audio"
+#define SLEEP_TIMEOUT_DEFAULT_MINUTES 10
+#elif defined(BOARD_LILYGO_T5S3_PRO)
 #define SYSTEM_VERSION "1.4.7"
 #define DEVICE_NAME "LILYGO T5 E-Paper S3 Pro Lite (H752-01)"
 #define SLEEP_TIMEOUT_DEFAULT_MINUTES 10
@@ -82,8 +86,15 @@
 #define BOOK32_HAS_TOUCH 1
 #define BOOK32_HAS_SD 1
 #define BOOK32_HAS_BUZZER 0
+#if defined(INKDECK_AUDIO) && INKDECK_AUDIO
+// The audio build updates from its own release assets on the fork (below),
+// never from the stock LILYGO firmware.
+#define OTA_FIRMWARE_ASSET "inkdeck-lilygo-audio-firmware.bin"
+#define OTA_FILESYSTEM_ASSET "inkdeck-lilygo-audio-littlefs.bin"
+#else
 #define OTA_FIRMWARE_ASSET "inkdeck-lilygo-firmware.bin"
 #define OTA_FILESYSTEM_ASSET "inkdeck-lilygo-littlefs.bin"
+#endif
 #elif defined(BOARD_M5_PAPERDIY)
 // M5Stack PaperDIY (K159 / K159-B). Panel bus: FastEPD's BB_PANEL_M5PAPERS3.
 #define PIN_BUTTON       3  // KEY2 (B): next, hold to select
@@ -237,8 +248,8 @@
 #define BATTERY_FULL_VOLTAGE 4.20f
 
 // GitHub OTA Config
-#if defined(BOARD_M5_PAPERDIY)
-// Experimental board: updates from the fork's releases (its own assets).
+#if defined(BOARD_M5_PAPERDIY) || (defined(INKDECK_AUDIO) && INKDECK_AUDIO)
+// The audio builds and the experimental PaperDIY update from the fork's releases.
 #define GITHUB_REPO "bigonionbots/Book32"
 #define GITHUB_USER "bigonionbots"
 #else
