@@ -8,6 +8,10 @@
  * (Bq25896.h); data is a USB-to-UART bridge on the module that the T5 talks to as a USB host
  * (UsbSerialHost.h). Both are off at boot and switched from the Audio Module screen.
  *
+ * M5Stack PaperDIY (INX_AUDIO_LINK_UART, INX_AUDIO_PM1_POWER): the link is a UART on the FPC
+ * header (ModuleSerial.h) and power is the module's EN on the M5PM1's GPIO0. The rules below
+ * then reduce to the auto power-off, with the module's HELLO standing in for "connected".
+ *
  * Power rules:
  * - The boost is never turned on while something else drives VBUS (charger, PC, or a module
  *   with its own battery). The link works without the boost in that case.
@@ -28,7 +32,7 @@
 
 #include "Bq25896.h"
 #include "UsbAudioOut.h"
-#include "UsbSerialHost.h"
+#include "ModuleSerial.h"
 
 #ifndef INX_AUDIO_MODULE_BAUD
 #define INX_AUDIO_MODULE_BAUD 500000
@@ -78,9 +82,9 @@ struct Snapshot {
   bool externalVbus = false;
   bool powerOn = false;
   bool linkOn = false;
-  UsbSerialHost::State linkState = UsbSerialHost::State::Stopped;
-  UsbSerialHost::DeviceInfo device;
-  UsbSerialHost::Counters counters;
+  ModuleSerial::State linkState = ModuleSerial::State::Stopped;
+  ModuleSerial::DeviceInfo device;
+  ModuleSerial::Counters counters;
   UsbAudioOut::State headphonesState = UsbAudioOut::State::Off;
   UsbAudioOut::DeviceInfo headphones;
   UsbAudioOut::Counters headphoneCounters;

@@ -14,3 +14,20 @@
 #ifndef INX_VERSION
 #define INX_VERSION SYSTEM_VERSION
 #endif
+
+// Which audio hardware the board has (platformio.ini sets them per env):
+// - INX_AUDIO_USB_HOST: the USB-C port runs as a USB host (LILYGO: module over a USB bridge, USB
+//   headphone adapters, BQ25896 boost). 0 builds stubs in system/UsbStubs.cpp instead.
+// - INX_AUDIO_LINK_UART: the module is on a plain UART (system/UartModuleSerial.cpp) rather than
+//   behind a USB bridge (UsbSerialHost).
+// - INX_AUDIO_PM1_POWER: the module's power is switched by an M5PM1 GPIO (PaperDIY) rather than
+//   the BQ25896 OTG boost.
+#ifndef INX_AUDIO_USB_HOST
+#define INX_AUDIO_USB_HOST 1
+#endif
+#ifndef INX_AUDIO_LINK_UART
+#define INX_AUDIO_LINK_UART 0
+#endif
+#ifndef INX_AUDIO_PM1_POWER
+#define INX_AUDIO_PM1_POWER 0
+#endif

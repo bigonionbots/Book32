@@ -59,6 +59,7 @@ private:
     View _view = View::Books;
     std::vector<View> _history;
     std::vector<Target> _targets;
+    int _focus = -1;  // button-only boards: index into _targets of the cursor
     bool _needsRedraw = true, _fullRefresh = true;
     unsigned long _lastDraw = 0;
     std::string _drawnKey;
@@ -107,6 +108,8 @@ private:
     void drawDetail(int top);
     void drawDownloads(int top);
     int rowsFrom(int top) const;
+    void moveFocus(int step);
+    void drawFocus();
     void button(int x, int y, int w, int h, const char* label, Act act, int index = 0, bool filled = false);
     void row(int y, const std::string& title, const std::string& detail, Act act, int index, bool marked = false);
     void pager(int y, int count, int rows);

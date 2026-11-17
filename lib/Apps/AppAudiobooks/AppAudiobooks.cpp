@@ -5,6 +5,7 @@
 #include <WiFi.h>
 #include <algorithm>
 #include "AppMgr.h"
+#include "Config.h"
 #include "DisplayMgr.h"
 #include "FontMgr.h"
 #include "abs/AbsLocal.h"
@@ -91,7 +92,24 @@ void AppAudiobooks::handleInput(InputAction action) {
     if (action == INPUT_BACK || action == INPUT_HOME) {
         if (action == INPUT_HOME) _history.clear();
         back();
-    } else if (action == INPUT_SELECT && _view == View::NowPlaying) {
+        return;
+    }
+#if !BOOK32_HAS_TOUCH
+    // No touchscreen: next / previous move a cursor over what a tap would hit, select presses it.
+    if (action == INPUT_NEXT || action == INPUT_PREV) {
+        moveFocus(action == INPUT_NEXT ? 1 : -1);
+        return;
+    }
+    if (action == INPUT_SELECT) {
+        if (_focus >= 0 && _focus < int(_targets.size())) {
+            const Target t = _targets[_focus];
+            run(t.act, t.index);
+            _needsRedraw = true;
+        }
+        return;
+    }
+#endif
+    if (action == INPUT_SELECT && _view == View::NowPlaying) {
         run(Act::PlayPause, 0);
     } else if (action == INPUT_NEXT) {
         run(_view == View::NowPlaying ? Act::VolUp : Act::PageDown, rowsFrom(HEADER_H + 80));
@@ -117,6 +135,7 @@ void AppAudiobooks::show(View view, bool remember) {
     }
     _view = view;
     _first = 0;
+    _focus = -1;  // the first target after the header's back arrow
     _notice.clear();
     enterView();
     _fullRefresh = true;
@@ -525,6 +544,36 @@ int AppAudiobooks::paragraph(const std::string& s, int x, int y, int size, int m
     return y;
 }
 
+// The cursor for button-only boards: skips the header's back arrow (the back key does that),
+// wraps around, and survives redraws that add or drop targets by staying in range.
+void AppAudiobooks::moveFocus(int step) {
+    const int n = int(_targets.size());
+    if (n == 0) return;
+    int i = _focus < 0 ? (step > 0 ? 0 : n) : _focus;
+    for (int tries = 0; tries < n; ++tries) {
+        i = (i + step + n) % n;
+        if (_targets[i].act != Act::Back) break;
+    }
+    _focus = i;
+    _needsRedraw = true;
+}
+
+void AppAudiobooks::drawFocus() {
+    const int n = int(_targets.size());
+    if (n == 0) return;
+    if (_focus < 0 || _focus >= n || _targets[_focus].act == Act::Back) {
+        // Start on the page's content, below the header's buttons.
+        _focus = 0;
+        while (_focus < n - 1 && (_targets[_focus].act == Act::Back || _targets[_focus].y < HEADER_H)) ++_focus;
+    }
+    const Target& t = _targets[_focus];
+    Book32Display& d = DisplayMgr::getInstance().getDisplay();
+    // Full-width rows would put the sides off screen: keep the frame inside.
+    const int x0 = std::max(0, t.x - 4), y0 = std::max(0, t.y - 4);
+    const int x1 = std::min(int(d.width()) - 1, t.x + t.w + 3), y1 = std::min(int(d.height()) - 1, t.y + t.h + 3);
+    for (int i = 0; i < 3; ++i) d.drawRoundRect(x0 + i, y0 + i, x1 - x0 + 1 - 2 * i, y1 - y0 + 1 - 2 * i, 12, GxEPD_BLACK);
+}
+
 void AppAudiobooks::button(int x, int y, int w, int h, const char* label, Act act, int index, bool filled) {
     Book32Display& d = DisplayMgr::getInstance().getDisplay();
     FontMgr& f = FontMgr::getInstance();
@@ -607,6 +656,9 @@ void AppAudiobooks::render() {
             d.drawLine(0, d.height() - 40, d.width(), d.height() - 40, GxEPD_BLACK);
             text(status, MARGIN, d.height() - 12, FONT_SIZE_SMALL, d.width() - 2 * MARGIN);
         }
+#if !BOOK32_HAS_TOUCH
+        drawFocus();
+#endif
     } while (d.nextPage());
 
     _lastDraw = millis();
@@ -678,7 +730,11 @@ void AppAudiobooks::drawNowPlaying(int top) {
 
     // Where it plays.
     std::string out;
+#if INX_AUDIO_LINK_UART
+    if (v.waitingForModule) out = "Waiting for the audio module";
+#else
     if (v.waitingForModule) out = "Waiting for the audio module or USB headphones";
+#endif
     else if (v.output == UsbAudioSink::USB_HEADPHONES) out = "USB headphones: " + std::string(UsbAudioOut::device().product);
     else if (v.output == audiolink::Output::Bluetooth) out = std::string("Bluetooth: ") + btText(v.btState);
     else if (v.output == audiolink::Output::I2s) out = "Audio module: wired output";
@@ -752,6 +808,26 @@ void AppAudiobooks::drawOutput(int top) {
     const AudioPlayer::View v = AudioPlayer::view();
     int y = top + 24;
 
+#if INX_AUDIO_LINK_UART
+    // The module on the FPC header: its power (PY_G0) and link go on and off together.
+    std::string port = "Audio module: ";
+    if (!snap.linkOn) port += "off";
+    else if (AudioLink::ready()) port += "connected";
+    else port += "starting";
+    text(port, MARGIN, y, FONT_SIZE_BODY, w - 2 * MARGIN);
+    y += 20;
+    const int half = (w - 3 * MARGIN) / 2;
+    button(MARGIN, y, half, BUTTON_H, snap.linkOn ? "Module off" : "Module on", Act::PowerModule);
+    button(2 * MARGIN + half, y, half, BUTTON_H, "Save log", Act::SaveLog);
+    y += BUTTON_H + 26;
+    if (!AudioLink::ready()) {
+        paragraph(snap.linkOn ? "No answer from the audio module yet. Check its wiring to the FPC header: "
+                                "G1 to the module's RX, G2 to its TX, PY_G0 to its EN, and ground."
+                              : "Turn the module on to choose Bluetooth or wired, or just play a book.",
+                  MARGIN, y, FONT_SIZE_SMALL, w - 2 * MARGIN, 4);
+        return;
+    }
+#else
     // USB-C port: module, headphones, or nothing yet.
     std::string port = "USB-C port: ";
     if (!snap.linkOn) port += "off";
@@ -783,6 +859,7 @@ void AppAudiobooks::drawOutput(int top) {
                   MARGIN, y, FONT_SIZE_SMALL, w - 2 * MARGIN, 4);
         return;
     }
+#endif
 
     // The module's outputs and its Bluetooth.
     button(MARGIN, y, half, BUTTON_H, "Bluetooth", Act::UseBluetooth, 0, v.output == audiolink::Output::Bluetooth);

@@ -23,6 +23,9 @@
 #include <string>
 
 #include "AudioLink.h"
+#if INX_AUDIO_PM1_POWER
+#include "PaperDiyPower.h"
+#endif
 #include "util/SdIoMutex.h"
 
 namespace AudioModule {
@@ -128,9 +131,22 @@ bool pollCharger() {
   return ok;
 }
 
+// A headset whose source vanishes holds on to the dead link and refuses the next connection until
+// it gives up (about 15 s with the test headset). Hang up first, so the next power-on reconnects at once.
+void hangUpHeadset() {
+  if (!powerOn || !AudioLink::ready()) return;
+  if (AudioLink::send(audiolink::Type::BtDisconnect, nullptr, 0, 100)) delay(150);
+}
+
 void boostOff(const char* reason) {
+  hangUpHeadset();
+#if INX_AUDIO_PM1_POWER
+  PaperDiyPower::setAudioModulePower(false);
+  if (powerOn) logf("Power: module off (%s)", reason);
+#else
   Bq25896::setOtgConfig(false);
   if (powerOn) logf("Power: boost off (%s)", reason);
+#endif
   powerOn = false;
   noDeviceSinceMs = 0;
   markChanged();
@@ -182,10 +198,27 @@ void logFailedAllocs() {
 // The module repository's diagnostic firmware uses the same pattern.
 uint8_t linkPatternByte(const uint32_t index) { return static_cast<uint8_t>((index * 2654435761u) >> 24); }
 
+// Whether anything is on the far end: over USB a bridge or headphones enumerate; a UART cannot
+// tell, so there it is the module's HELLO.
+bool moduleSeen() {
+#if INX_AUDIO_LINK_UART
+  return AudioLink::ready();
+#else
+  return ModuleSerial::isConnected() || UsbAudioOut::isConnected();
+#endif
+}
+
 }  // namespace
 
 void begin(const bool keepBoost) {
   heap_caps_register_failed_alloc_callback(onAllocFailed);
+#if INX_AUDIO_PM1_POWER
+  (void)keepBoost;
+  // The enable keeps its level across restarts and sleep: start from off.
+  const bool ok = PaperDiyPower::setAudioModulePower(false);
+  logf("Module power: M5PM1 GPIO0 (PY_G0)%s", ok ? "" : " not reachable");
+  return;
+#endif
   if (!Bq25896::present()) {
     logf("Charger: BQ25896 not found");
     return;
@@ -210,6 +243,9 @@ void service() {
   if (now - lastPollMs < POLL_INTERVAL_MS) return;
   lastPollMs = now;
 
+#if INX_AUDIO_PM1_POWER
+  if (powerOn) {
+#else
   pollGauge();
   if (!pollCharger()) return;
 
@@ -222,9 +258,10 @@ void service() {
   }
 
   if (powerOn) {
+#endif
     // With the link off the module cannot be seen, so only a long idle limit applies.
     const uint32_t limit = linkOn ? NO_DEVICE_POWER_OFF_MS : LINK_OFF_POWER_OFF_MS;
-    if (UsbSerialHost::isConnected() || UsbAudioOut::isConnected()) {
+    if (moduleSeen()) {
       noDeviceSinceMs = 0;
     } else if (noDeviceSinceMs == 0) {
       noDeviceSinceMs = now;
@@ -235,8 +272,13 @@ void service() {
 }
 
 void shutdown() {
+  hangUpHeadset();
   if (linkOn) setLinkEnabled(false);
+#if INX_AUDIO_PM1_POWER
+  PaperDiyPower::setAudioModulePower(false);
+#else
   if (Bq25896::present()) Bq25896::setOtgConfig(false);
+#endif
   powerOn = false;
 }
 
@@ -246,6 +288,17 @@ PowerResult setPower(const bool on) {
     return PowerResult::Ok;
   }
   if (powerOn) return PowerResult::Ok;
+#if INX_AUDIO_PM1_POWER
+  if (!PaperDiyPower::setAudioModulePower(true)) {
+    logf("Power: M5PM1 did not answer");
+    return PowerResult::I2cError;
+  }
+  powerOn = true;
+  noDeviceSinceMs = millis();
+  logf("Power: module on (PY_G0 high)");
+  markChanged();
+  return PowerResult::Ok;
+#endif
   if (!Bq25896::present()) return PowerResult::NoCharger;
   if (!pollCharger()) return PowerResult::I2cError;
   if (Bq25896::externalVbusPresent(charger)) {
@@ -275,14 +328,14 @@ bool setLinkEnabled(const bool on) {
     logf("RAM: before link: internal %u bytes free, largest block %u",
          static_cast<unsigned>(heap_caps_get_free_size(MALLOC_CAP_INTERNAL)),
          static_cast<unsigned>(heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL)));
-    linkOn = UsbSerialHost::start(LINK_BAUD);
+    linkOn = ModuleSerial::start(LINK_BAUD);
     logf("RAM: link started: internal %u bytes free, largest block %u",
          static_cast<unsigned>(heap_caps_get_free_size(MALLOC_CAP_INTERNAL)),
          static_cast<unsigned>(heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL)));
     // Give a module that is already powered the full window to enumerate.
     if (powerOn) noDeviceSinceMs = millis();
   } else {
-    UsbSerialHost::stop();
+    ModuleSerial::stop();
     linkOn = false;
   }
   markChanged();
@@ -299,7 +352,7 @@ void putLe32(uint8_t* out, const uint32_t value) {
 
 // 'B' + u32 length + u16 burst + u16 gap_us: the module sends the pattern in bursts.
 void receiveFromModule(const uint32_t length, const uint16_t burst, const uint16_t gapUs, uint32_t& got, bool& exact) {
-  UsbSerialHost::clearReceived();
+  ModuleSerial::clearReceived();
   uint8_t command[9] = {'B'};
   putLe32(command + 1, length);
   command[5] = static_cast<uint8_t>(burst);
@@ -307,11 +360,11 @@ void receiveFromModule(const uint32_t length, const uint16_t burst, const uint16
   command[7] = static_cast<uint8_t>(gapUs);
   command[8] = static_cast<uint8_t>(gapUs >> 8);
   got = 0;
-  exact = UsbSerialHost::write(command, sizeof(command), LINK_WRITE_TIMEOUT_MS) == sizeof(command);
+  exact = ModuleSerial::write(command, sizeof(command), LINK_WRITE_TIMEOUT_MS) == sizeof(command);
   uint8_t incoming[LINK_CHUNK_BYTES];
   uint32_t lastRxMs = millis();
   while (got < length && millis() - lastRxMs < LINK_IDLE_TIMEOUT_MS) {
-    const size_t n = UsbSerialHost::read(incoming, sizeof(incoming), 50);
+    const size_t n = ModuleSerial::read(incoming, sizeof(incoming), 50);
     for (size_t i = 0; i < n; ++i) {
       if (incoming[i] != linkPatternByte(got + i)) exact = false;
     }
@@ -325,7 +378,7 @@ void receiveFromModule(const uint32_t length, const uint16_t burst, const uint16
 
 LinkTestResult runLinkTest() {
   LinkTestResult result;
-  if (!UsbSerialHost::isConnected()) {
+  if (!ModuleSerial::isConnected()) {
     logf("Link test: no module connected");
     return result;
   }
@@ -335,16 +388,16 @@ LinkTestResult runLinkTest() {
 
   // Host -> module: 'R' + u32 length, then the pattern; the module checks it and replies
   // "R <got> <bad> <ms>\n".
-  UsbSerialHost::clearReceived();
+  ModuleSerial::clearReceived();
   uint8_t chunk[LINK_CHUNK_BYTES];
   chunk[0] = 'R';
   putLe32(chunk + 1, LINK_TO_MODULE_BYTES);
-  if (UsbSerialHost::write(chunk, 5, LINK_WRITE_TIMEOUT_MS) == 5) {
+  if (ModuleSerial::write(chunk, 5, LINK_WRITE_TIMEOUT_MS) == 5) {
     delay(20);
     while (result.toModuleSent < LINK_TO_MODULE_BYTES) {
       const size_t n = std::min<size_t>(sizeof(chunk), LINK_TO_MODULE_BYTES - result.toModuleSent);
       for (size_t i = 0; i < n; ++i) chunk[i] = linkPatternByte(result.toModuleSent + i);
-      if (UsbSerialHost::write(chunk, n, LINK_WRITE_TIMEOUT_MS) != n) break;
+      if (ModuleSerial::write(chunk, n, LINK_WRITE_TIMEOUT_MS) != n) break;
       result.toModuleSent += static_cast<uint32_t>(n);
     }
     char reply[48] = {};
@@ -352,7 +405,7 @@ LinkTestResult runLinkTest() {
     const uint32_t waitStart = millis();
     while (millis() - waitStart < LINK_REPLY_TIMEOUT_MS && replyLength + 1 < sizeof(reply)) {
       uint8_t c = 0;
-      if (UsbSerialHost::read(&c, 1, 50) != 1) continue;
+      if (ModuleSerial::read(&c, 1, 50) != 1) continue;
       if (c == '\n') break;
       reply[replyLength++] = static_cast<char>(c);
     }
@@ -391,9 +444,9 @@ Snapshot snapshot() {
   out.externalVbus = chargerOk && Bq25896::externalVbusPresent(charger);
   out.powerOn = powerOn;
   out.linkOn = linkOn;
-  out.linkState = UsbSerialHost::state();
-  out.device = UsbSerialHost::device();
-  out.counters = UsbSerialHost::counters();
+  out.linkState = ModuleSerial::state();
+  out.device = ModuleSerial::device();
+  out.counters = ModuleSerial::counters();
   out.headphonesState = UsbAudioOut::state();
   out.headphones = UsbAudioOut::device();
   out.headphoneCounters = UsbAudioOut::counters();

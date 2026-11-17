@@ -25,6 +25,9 @@
 #include "state/SystemSetting.h"
 #include "system/AudioModule.h"
 #include "system/Bq25896.h"
+#if INX_AUDIO_PM1_POWER
+#include "PaperDiyPower.h"
+#endif
 #include "util/SdIoMutex.h"
 
 namespace AbsQueue {
@@ -106,6 +109,9 @@ void fetchMain(void*) {
 }
 
 bool readCharger() {
+#if INX_AUDIO_PM1_POWER
+  return PaperDiyPower::isExternalPower();
+#endif
   if (!Bq25896::present()) return false;
   Bq25896::Status status;
   return Bq25896::readStatus(status) && Bq25896::externalVbusPresent(status);

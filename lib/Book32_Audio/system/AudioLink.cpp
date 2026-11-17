@@ -19,7 +19,7 @@
 #include <cstring>
 
 #include "AudioModule.h"
-#include "UsbSerialHost.h"
+#include "ModuleSerial.h"
 
 namespace AudioLink {
 
@@ -51,7 +51,7 @@ uint32_t rxFree = 0;
 uint32_t inflightAudio = 0;
 uint32_t inflightBytes = 0;
 uint32_t lastFastResendMs = 0;
-// A frame USB would not take (UsbSerialHost::write failed, e.g. briefly out of internal RAM): the
+// A frame USB would not take (ModuleSerial::write failed, e.g. briefly out of internal RAM): the
 // module never sees it, and without later frames to show the gap it would wait RESEND_TIMEOUT_MS
 // (longer than its buffer lasts). Resend soon instead.
 bool writeFailed = false;
@@ -108,11 +108,11 @@ void sendPingLocked() {
   clearWindowLocked();
   pingOutstanding = true;
   lastPingMs = millis();
-  UsbSerialHost::write(frame, size, WRITE_TIMEOUT_MS);
+  ModuleSerial::write(frame, size, WRITE_TIMEOUT_MS);
 }
 
 void writeFrameLocked(const uint8_t* frame, const size_t size) {
-  if (UsbSerialHost::write(frame, size, WRITE_TIMEOUT_MS) == size) return;
+  if (ModuleSerial::write(frame, size, WRITE_TIMEOUT_MS) == size) return;
   ++linkCounters.writeErrors;
   if (!writeFailed) writeFailedMs = millis();
   writeFailed = true;
@@ -256,7 +256,7 @@ void resendIfStalled() {
 void linkTask(void*) {
   uint8_t chunk[READ_CHUNK];
   for (;;) {
-    if (suspended || !UsbSerialHost::isConnected()) {
+    if (suspended || !ModuleSerial::isConnected()) {
       {
         Guard guard;
         resetSessionLocked();
@@ -268,7 +268,7 @@ void linkTask(void*) {
       Guard guard;
       if (!linkReady && millis() - lastPingMs >= PING_INTERVAL_MS) sendPingLocked();
     }
-    const size_t got = UsbSerialHost::read(chunk, sizeof(chunk), 10);
+    const size_t got = ModuleSerial::read(chunk, sizeof(chunk), 10);
     for (size_t i = 0; i < got; ++i) {
       if (parser->push(chunk[i])) handleFrame();
     }

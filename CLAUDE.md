@@ -16,6 +16,7 @@ Four PlatformIO environments in `platformio.ini`, each selected by a board defin
 | `seeed_reterminal_sticky` | `BOARD_SEEED_STICKY` | Seeed Sticky, touch, SD, buzzer, 32MB flash |
 | `lilygo_t5s3_pro` | `BOARD_LILYGO_T5S3_PRO` | LILYGO T5 S3 Pro H752-01 only (experimental), FastEPD, frontlight, `-O3` |
 | `lilygo_t5s3_pro_audio` | `BOARD_LILYGO_T5S3_PRO` + `INKDECK_AUDIO` | This fork's audio build: the LILYGO plus Audiobooks (see below) |
+| `m5_paperdiy_audio` | `BOARD_M5_PAPERDIY` + `INKDECK_AUDIO` | PaperDIY plus Audiobooks, module on a UART (FPC header) |
 
 ```sh
 pio run -e <env>                 # build firmware
@@ -57,6 +58,7 @@ There is no single test runner. Tests are standalone host programs in `test/`, e
 - `lib/Book32_Core/AudioHooks.h` is the only coupling from the core: begin, service, keep-awake, `holdsRadio()` (opening a book does not power Wi-Fi down mid-stream), `needsFullCpu()`, shutdown before sleep, and `registerWeb`. Outside the audio env these are inline no-ops. Keep it that way, so the stock builds stay unchanged and mergeable with upstream.
 - `lib/Apps/AppAudiobooks`: the on-device UI. `lib/Book32_Audio/AudioWeb.cpp`: `/api/audio/*`, served from a snapshot the main loop refreshes. The web tab appears only when that endpoint answers.
 - OTA for this build uses `bigonionbots/Book32` and the `inkdeck-lilygo-audio-*` assets (`Config.h`).
+- `m5_paperdiy_audio` is the same engine without USB: `INX_AUDIO_USB_HOST=0` swaps the USB host, headphone and BQ25896 code for `system/UsbStubs.cpp`; `INX_AUDIO_LINK_UART=1` makes `ModuleSerial` (`system/ModuleSerial.h`, normally an alias of `UsbSerialHost`) a UART on `INX_AUDIO_UART_TX/RX` (`UartModuleSerial.cpp`); `INX_AUDIO_PM1_POWER=1` switches the module through `PaperDiyPower::setAudioModulePower` (M5PM1 GPIO0 / PY_G0). The app shows a focus frame driven by the keys when `BOOK32_HAS_TOUCH` is 0. Wiring: `docs/audio.md`.
 - The vendored code under `third_party/` and `shared/audio_link/` is unmodified; update it from its source instead of editing it.
 
 ## Releases

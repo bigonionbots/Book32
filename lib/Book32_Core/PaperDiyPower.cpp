@@ -27,6 +27,8 @@ constexpr uint8_t REG_BUTTON_CONFIG1 = 0x49;
 constexpr uint8_t CHARGE_ENABLE = 1 << 0;
 constexpr uint8_t EPD_POWER_GPIO = 2;
 constexpr uint8_t CHARGE_STATUS_GPIO = 3;
+// PY_G0 on the FPC I2S header (pin 3): the audio module's enable (docs/audio.md).
+constexpr uint8_t AUDIO_MODULE_GPIO = 0;
 constexpr uint8_t SINGLE_CLICK_RESET_DISABLE = 1 << 0;
 constexpr uint8_t COMMAND_SHUTDOWN = 0xA1;
 
@@ -84,13 +86,23 @@ bool begin() {
 
 bool present() { return chipPresent; }
 
+namespace {
+// GPIO function, push-pull output, then the level.
+bool setOutput(uint8_t gpio, bool high) {
+    return updateRegister(REG_GPIO_FUNC0, 0b11 << (2 * gpio), 0) &&
+           updateRegister(REG_GPIO_MODE, 0, 1 << gpio) &&
+           updateRegister(REG_GPIO_DRIVE, 1 << gpio, 0) &&
+           updateRegister(REG_GPIO_OUT, high ? 0 : 1 << gpio, high ? 1 << gpio : 0);
+}
+}  // namespace
+
 void setEpdPower(bool on) {
     if (!begin()) return;
-    // GPIO function, push-pull output, then the level.
-    updateRegister(REG_GPIO_FUNC0, 0b11 << (2 * EPD_POWER_GPIO), 0);
-    updateRegister(REG_GPIO_MODE, 0, 1 << EPD_POWER_GPIO);
-    updateRegister(REG_GPIO_DRIVE, 1 << EPD_POWER_GPIO, 0);
-    updateRegister(REG_GPIO_OUT, on ? 0 : 1 << EPD_POWER_GPIO, on ? 1 << EPD_POWER_GPIO : 0);
+    setOutput(EPD_POWER_GPIO, on);
+}
+
+bool setAudioModulePower(bool on) {
+    return begin() && setOutput(AUDIO_MODULE_GPIO, on);
 }
 
 bool readBatteryMillivolts(uint16_t& millivolts) {

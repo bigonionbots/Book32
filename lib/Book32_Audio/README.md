@@ -17,9 +17,21 @@ carried over with a diff. The only changes are:
 
 - `audio/PcmDecoder.cpp`: `third_party` include paths one level deeper;
 - `system/UsbAudioOut.h`: `#include <cstddef>`;
-- `abs/AbsWifi.{h,cpp}`: `inUse()`, which InkDeck's radio-off paths check.
+- `abs/AbsWifi.{h,cpp}`: `inUse()`, which InkDeck's radio-off paths check;
+- for the M5Stack PaperDIY (`m5_paperdiy_audio`), which reaches the module over a UART and
+  switches it with an M5PM1 GPIO:
+  - `system/AudioLink.cpp`, `system/AudioModule.{h,cpp}`: `ModuleSerial` (`system/ModuleSerial.h`)
+    in place of `UsbSerialHost`, which it aliases on the LILYGO;
+  - `system/AudioModule.cpp`: the `INX_AUDIO_PM1_POWER` power path, and a Bluetooth hang-up
+    before the module's power goes off (both boards);
+  - `system/{UsbSerialHost,UsbAudioOut,UsbAudioSink,Bq25896}.cpp`: built only with
+    `INX_AUDIO_USB_HOST`; `system/UsbStubs.cpp` stands in otherwise;
+  - `abs/AbsQueue.cpp`: "on the charger" from the M5PM1;
+  - new: `system/ModuleSerial.h`, `system/UartModuleSerial.cpp`, `system/UsbStubs.cpp`.
 
-The `INX_*` switches are unchanged (`INX_HAS_AUDIO_MODULE`, `INX_AUDIO_MODULE_BAUD`).
+The original `INX_*` switches are unchanged (`INX_HAS_AUDIO_MODULE`, `INX_AUDIO_MODULE_BAUD`).
+New ones (defaults in `compat/InkDeckAudioCompat.h`): `INX_AUDIO_USB_HOST`,
+`INX_AUDIO_LINK_UART` (+ `INX_AUDIO_UART_TX`, `_RX`, `_NUM`), `INX_AUDIO_PM1_POWER`.
 
 ## InkDeck's side
 

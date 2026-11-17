@@ -10,7 +10,11 @@
 #define SLEEP_TIMEOUT_DEFAULT_MINUTES 10
 #elif defined(BOARD_M5_PAPERDIY)
 #define SYSTEM_VERSION "1.4.7"
+#if defined(INKDECK_AUDIO) && INKDECK_AUDIO
+#define DEVICE_NAME "M5Stack PaperDIY + audio"
+#else
 #define DEVICE_NAME "M5Stack PaperDIY"
+#endif
 #define SLEEP_TIMEOUT_DEFAULT_MINUTES 10
 #elif defined(BOARD_SEEED_STICKY)
 #define SYSTEM_VERSION "1.4.7"
@@ -111,8 +115,15 @@
 #define BOOK32_HAS_TOUCH 0
 #define BOOK32_HAS_SD    1
 #define BOOK32_HAS_BUZZER 0
+#if defined(INKDECK_AUDIO) && INKDECK_AUDIO
+#define OTA_FIRMWARE_ASSET "inkdeck-paperdiy-audio-firmware.bin"
+#define OTA_FILESYSTEM_ASSET "inkdeck-paperdiy-audio-littlefs.bin"
+#else
 #define OTA_FIRMWARE_ASSET "inkdeck-paperdiy-firmware.bin"
 #define OTA_FILESYSTEM_ASSET "inkdeck-paperdiy-littlefs.bin"
+#endif
+// The audio module's UART is on FPC G1 (TX) / G2 (RX), its enable on PY_G0
+// (platformio.ini, env m5_paperdiy_audio; docs/audio.md).
 #elif defined(BOARD_SEEED_STICKY)
 // Seeed reTerminal E1002 / Sticky 3.97" (SSD1677)
 #define PIN_BUTTON       4

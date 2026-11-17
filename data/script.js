@@ -1204,7 +1204,7 @@ function getAudioStatus() {
             } else {
                 playing.textContent = 'Nothing is playing.';
             }
-            document.getElementById('audio-port').textContent = data.headphones ? `USB headphones: ${data.headphones}` : (data.portOn ? 'USB-C port on.' : 'USB-C port off.');
+            document.getElementById('audio-port').textContent = data.headphones ? `USB headphones: ${data.headphones}` : `${data.portName || 'USB-C port'} ${data.portOn ? 'on' : 'off'}.`;
 
             document.getElementById('audio-queue-hint').textContent = data.charging
                 ? 'On the charger: queued books download now.'

@@ -5,7 +5,7 @@
 
 #include "UsbAudioSink.h"
 
-#if INX_HAS_AUDIO_MODULE
+#if INX_HAS_AUDIO_MODULE && INX_AUDIO_USB_HOST
 
 #include <Arduino.h>
 #include <SDCardManager.h>

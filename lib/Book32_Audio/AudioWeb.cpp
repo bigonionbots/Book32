@@ -91,6 +91,11 @@ void snapshot() {
   }
   const auto snap = AudioModule::snapshot();
   doc["portOn"] = snap.linkOn;
+#if INX_AUDIO_LINK_UART
+  doc["portName"] = "Audio module";
+#else
+  doc["portName"] = "USB-C port";
+#endif
   if (snap.headphonesState == UsbAudioOut::State::Ready || snap.headphonesState == UsbAudioOut::State::Playing)
     doc["headphones"] = snap.headphones.product;
   std::string out;

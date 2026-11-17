@@ -12,5 +12,10 @@ struct BatteryGauge {
 struct Board {
     BatteryGauge batteryGauge;
 };
+#if defined(BOARD_M5_PAPERDIY)
+// No BQ27220 or BQ25896: the M5PM1 does both jobs (PaperDiyPower). 0 = absent.
+inline constexpr Board ACTIVE{{0x00, 0x00}};
+#else
 inline constexpr Board ACTIVE{{0x55, 0x6B}};
+#endif
 }  // namespace BoardConfig

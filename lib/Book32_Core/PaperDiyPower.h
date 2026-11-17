@@ -21,6 +21,11 @@ bool present();
 // as the PaperS3 panel's PWR pin.
 void setEpdPower(bool on);
 
+// PM1 GPIO0, PY_G0 on the FPC I2S header (pin 3), wired to the audio module's
+// EN: high runs it, low holds it in reset. It keeps its level while the S3
+// sleeps or is off, so InkDeck drives it low before either.
+bool setAudioModulePower(bool on);
+
 bool readBatteryMillivolts(uint16_t& millivolts);
 // CHG_STAT (PM1 GPIO3) is LOW while the charger runs.
 bool isCharging();
